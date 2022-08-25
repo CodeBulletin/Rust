@@ -34,8 +34,11 @@ fn main() {
 
     let x = 0;
     makes_copy(x);
-    println!()
-    // println!("{}", s); wont work because s is no longer valid
+    println!("{}", x);
+
+    let mut s = String::from("hello ownership");
+    s = takes_ownership_and_back(s);
+    println!("{}", s);
 
 }
 
@@ -46,3 +49,8 @@ fn takes_ownership(str: String) { // takes the ownership of the variable
 fn makes_copy(x: i32) { // takes the ownership of the variable
     println!("{}", x);
 } // delete the variable
+
+fn takes_ownership_and_back(str: String) -> String {
+    println!("{} i am going to return it back", str);
+    return str;
+}
