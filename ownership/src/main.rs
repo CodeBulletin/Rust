@@ -40,6 +40,15 @@ fn main() {
     s = takes_ownership_and_back(s);
     println!("{}", s);
 
+    let s = String::from("hello borrowing");
+    borrowing(&s);
+    println!("{}", s); //workes becz it was borrowed
+
+    //mutable references there can only be 1 mutable refrence in the scope but you can have multiple immutable references
+    let mut s1 = String::from("a");
+    // let s2 = &mut s1; can do this becz you can only borrow once
+    let s3 = &mut s1;
+    println!("{}", s3)
 }
 
 fn takes_ownership(str: String) { // takes the ownership of the variable
@@ -53,4 +62,8 @@ fn makes_copy(x: i32) { // takes the ownership of the variable
 fn takes_ownership_and_back(str: String) -> String {
     println!("{} i am going to return it back", str);
     return str;
+}
+
+fn borrowing(str: &String) {
+    println!("I borrowed {}", str);
 }
