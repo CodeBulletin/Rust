@@ -8,5 +8,8 @@ fn main() {
         std::process::exit(1);
     });
 
-    println!("{:#?}", dns_lookup::lookup_host(config.address.host_str().unwrap()).unwrap());
+    getip::run(&config).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        std::process::exit(1);
+    });
 }

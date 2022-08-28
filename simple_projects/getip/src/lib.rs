@@ -1,3 +1,4 @@
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use url::Url;
 
 #[derive(Debug, PartialEq)]
@@ -29,6 +30,10 @@ impl Config {
                 ipv4 = false;
                 for i in &args[2..] {
                     match i.as_str() {
+                        "--ipall" => {
+                            ipv6 = true;
+                            ipv4 = true;
+                        }
                         "--ipv4" => ipv4 = true,
                         "--ipv6" => ipv6 = true,
                         _ => return Err(String::from(format!("Incorrect Input {}", i)))
@@ -52,11 +57,45 @@ pub fn check_url_validator(url: &String) -> Result<Url, String> {
             format!("Error Parsing the url: {}, err: {}", url, parsed_url.err().unwrap())
         );
     }
-    return Ok(parsed_url.unwrap()); 
+    Ok(parsed_url.unwrap())
 }
 
-pub fn run() {
-    
+pub fn run(config: &Config) -> Result<(), String> {
+    let hostname = config.address.host();
+    if let Option::None = hostname {
+        return Err(format!("Hostname not provided"));
+    }
+    let hostname = hostname.unwrap().to_string();
+
+    let ips = dns_lookup::lookup_host(&hostname);
+    if let Result::Err(err) = ips {
+        return Err(format!("{}", err));
+    }
+    let ips = ips.unwrap();
+
+    let mut ip4: Vec<Ipv4Addr> = vec![];
+    let mut ip6: Vec<Ipv6Addr> = vec![];
+
+    for i in ips {
+        match i {
+            IpAddr::V4(ip) => ip4.push(ip),
+            IpAddr::V6(ip) => ip6.push(ip),
+        }
+    }
+
+    if config.ipv4 {
+        for i in ip4 {
+            println!("{}", i);
+        }
+    }
+
+    if config.ipv6 {
+        for i in ip6 {
+            println!("{}", i);
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
