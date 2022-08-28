@@ -1,19 +1,22 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr}};
 use url::Url;
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
     pub address: Url,
     pub ipv4: bool,
-    pub ipv6: bool
+    pub ipv6: bool,
+    pub view_all: bool
 }
 
 impl Config {
     pub fn new(args: &Vec<String>) -> Result<Self, String> {
 
-        let mut address: Url = Url::parse("https://localhost").unwrap();
+        let url = String::from("http://localhost");
+        let mut address: Url = check_url_validator(&url).unwrap();
         let mut ipv4 = true;
         let mut ipv6 = false;
+        let mut view_all = false;
 
         if args.len() <= 1 {
             return Err(String::from("Please Enter the URL"));
@@ -24,18 +27,23 @@ impl Config {
             if parsed_url.is_err() {
                 return Err(format!("{:?}", parsed_url.err().unwrap()));
             }
-            address = parsed_url.unwrap();
+            let url = check_url_validator(&args[1]);
+            if let Err(message) = url {
+                return Err(format!("{}", message))
+            }
+            address = url.unwrap();
 
             if args.len() >= 3 {
                 ipv4 = false;
                 for i in &args[2..] {
                     match i.as_str() {
                         "--ipall" => {
-                            ipv6 = true;
                             ipv4 = true;
+                            ipv6 = true;
                         }
                         "--ipv4" => ipv4 = true,
                         "--ipv6" => ipv6 = true,
+                        "--details" => view_all = true,
                         _ => return Err(String::from(format!("Incorrect Input {}", i)))
                     }
                 }
@@ -46,7 +54,7 @@ impl Config {
             return Err(String::from("Incorrect Inputs"));
         }
 
-        Ok(Config { address, ipv4, ipv6 })
+        Ok(Config { address, ipv4, ipv6, view_all })
     }
 }
 
@@ -61,11 +69,7 @@ pub fn check_url_validator(url: &String) -> Result<Url, String> {
 }
 
 pub fn run(config: &Config) -> Result<(), String> {
-    let hostname = config.address.host();
-    if let Option::None = hostname {
-        return Err(format!("Hostname not provided"));
-    }
-    let hostname = hostname.unwrap().to_string();
+    let hostname = config.address.host_str().unwrap();
 
     let ips = dns_lookup::lookup_host(&hostname);
     if let Result::Err(err) = ips {
@@ -82,6 +86,25 @@ pub fn run(config: &Config) -> Result<(), String> {
             IpAddr::V6(ip) => ip6.push(ip),
         }
     }
+
+    if config.view_all {
+        let output = if cfg!(target_os = "windows") {
+            std::process::Command::new("cmd")
+                .args(&["/C", format!("nslookup {}", hostname).as_str()])
+                .output()
+        } else {
+            std::process::Command::new("sh")
+                .arg("/c")
+                .arg(format!("nslookup {}", hostname).as_str())
+                .output()
+        };
+
+        if let Ok(stdout) = output {
+            let output = String::from_utf8(stdout.stdout).unwrap();
+            println!("{}", output);
+        }
+    }
+
 
     if config.ipv4 {
         for i in ip4 {
@@ -118,19 +141,19 @@ mod config_tests {
     #[test]
     fn multiple_arg() {
         let args0 = vec![String::from("00"), String::from("https://www.google.com")];
-        assert_eq!(config_genrator(&args0), Config { address: check_url_validator(&args0[1]).unwrap(), ipv4: true, ipv6: false });
+        assert_eq!(config_genrator(&args0), Config { address: check_url_validator(&args0[1]).unwrap(), ipv4: true, ipv6: false, view_all: true });
 
         let args1 = vec![String::from("00"), String::from("https://www.google.com"), String::from("--ipv4")];
-        assert_eq!(config_genrator(&args1), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: true, ipv6: false });
+        assert_eq!(config_genrator(&args1), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: true, ipv6: false, view_all: true });
 
         let args2 = vec![String::from("00"), String::from("https://www.google.com"), String::from("--ipv6")];
-        assert_eq!(config_genrator(&args2), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: false, ipv6: true });
+        assert_eq!(config_genrator(&args2), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: false, ipv6: true, view_all: true });
 
         let args3 = vec![String::from("00"), String::from("https://www.google.com"), String::from("--ipv4"), String::from("--ipv6")];
-        assert_eq!(config_genrator(&args3), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: true, ipv6: true });
+        assert_eq!(config_genrator(&args3), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: true, ipv6: true, view_all: true });
 
         let args4 = vec![String::from("00"), String::from("https://www.google.com"), String::from("--ipv6"), String::from("--ipv4")];
-        assert_eq!(config_genrator(&args4), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: true, ipv6: true });
+        assert_eq!(config_genrator(&args4), Config { address: check_url_validator(&args1[1]).unwrap(), ipv4: true, ipv6: true, view_all: true });
     }
 
     #[test]
